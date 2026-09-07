@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-board</title>
+<style>
+:root { --yw: #fef3c7; --gn: #d1fae5; --bl: #dbeafe; --pk: #fce7f3; --gy: #f3f4f6;
+  --bd: var(--border, #e5e7eb); --fg: var(--foreground, #111); --mut: var(--muted-foreground, #666);
+  --ac: var(--accent, #2563eb); --card: var(--card, #fff); }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { display: flex; height: 100vh; color: var(--fg); font-size: 14px; }
+#side { width: 220px; min-width: 220px; border-right: 1px solid var(--bd); display: flex; flex-direction: column; }
+#side h1 { font-size: 15px; padding: 12px 12px 4px; }
+#side .sub { font-size: 12px; color: var(--mut); padding: 0 12px 8px; }
+#boards { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+.b { padding: 8px 10px; border: 1px solid var(--bd); border-radius: 8px; margin-bottom: 6px; cursor: pointer; background: var(--card); }
+.b.on { border-color: var(--ac); box-shadow: 0 0 0 1px var(--ac); }
+.b .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b .d { font-size: 12px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#newb { margin: 8px; display: flex; gap: 6px; }
+#newb input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--bd); border-radius: 6px; color: var(--fg); background: transparent; }
+button { padding: 6px 10px; border: 1px solid var(--bd); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
+button.pri { background: var(--ac); border-color: var(--ac); color: #fff; }
+#main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--bd); flex-wrap: wrap; }
+#bar .ttl { font-weight: 700; font-size: 15px; }
+#bar .hint { font-size: 12px; color: var(--mut); }
+#bar select, #bar input { padding: 5px 8px; border: 1px solid var(--bd); border-radius: 6px; background: transparent; color: var(--fg); }
+#cv { flex: 1; position: relative; overflow: hidden; touch-action: none; cursor: grab; }
+#world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.card { position: absolute; width: 240px; border: 1px solid var(--bd); border-radius: 10px; padding: 10px 10px 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); cursor: grab; color: #111; }
+.card:active { cursor: grabbing; }
+.card h3 { font-size: 13.5px; margin: 0 0 4px; padding-right: 44px; }
+.card .tp { position: absolute; top: 8px; right: 8px; font-size: 11px; background: rgba(0,0,0,.08); border-radius: 4px; padding: 1px 6px; }
+.card .bd { font-size: 12.5px; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: hidden; }
+.card a { font-size: 12px; color: #1d4ed8; word-break: break-all; }
+.card .path { font-size: 11.5px; font-family: monospace; background: rgba(0,0,0,.06); border-radius: 4px; padding: 2px 5px; word-break: break-all; }
+.card .tags { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+.card .tag { font-size: 11px; background: rgba(0,0,0,.08); border-radius: 10px; padding: 0 7px; }
+.card .ft { margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.card .ft button { padding: 1px 8px; font-size: 12px; }
+.card.done h3 { text-decoration: line-through; color: #555; }
+.y-yellow { background: var(--yw); } .y-green { background: var(--gn); }
+.y-blue { background: var(--bl); } .y-pink { background: var(--pk); } .y-gray { background: var(--gy); }
+#editor { position: absolute; right: 12px; top: 12px; width: 300px; background: var(--card); color: var(--fg); border: 1px solid var(--bd); border-radius: 10px; padding: 12px; display: none; z-index: 10; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+#editor.open { display: block; }
+#editor label { font-size: 12px; color: var(--mut); display: block; margin: 8px 0 2px; }
+#editor input, #editor textarea, #editor select { width: 100%; padding: 6px 8px; border: 1px solid var(--bd); border-radius: 6px; background: transparent; color: var(--fg); }
+#editor textarea { min-height: 80px; resize: vertical; }
+#editor .row { display: flex; gap: 6px; margin-top: 10px; }
+#editor .row button { flex: 1; }
+#toast { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; font-size: 12px; padding: 6px 14px; border-radius: 16px; display: none; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>📌 agent-board</h1>
+  <div class="sub">项目 = 画布 · 万物 = 卡片</div>
+  <div id="boards"></div>
+  <div id="newb"><input id="nbtitle" placeholder="新建项目画布…"><button class="pri" id="nbgo">+</button></div>
+</div>
+<div id="main">
+  <div id="bar">
+    <span class="ttl" id="btitle">—</span>
+    <select id="ftype"><option value="">全部类型</option><option>note</option><option>link</option><option>file</option><option>task</option></select>
+    <input id="ftext" placeholder="过滤 卡片/标签…" size="16">
+    <button id="addc">+ 卡片</button>
+    <button id="refresh">刷新</button>
+    <span class="hint">双击空白新建 · 拖卡片移动 · 滚轮缩放 · 右键拖拽平移</span>
+  </div>
+  <div id="cv"><div id="world"></div>
+    <div id="editor">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b id="etitle">编辑卡片</b><button id="eclose">✕</button></div>
+      <label>标题</label><input id="et">
+      <label>类型 / 颜色 / 状态</label>
+      <div style="display:flex;gap:6px">
+        <select id="ey"><option>note</option><option>link</option><option>file</option><option>task</option></select>
+        <select id="ec"><option>yellow</option><option>green</option><option>blue</option><option>pink</option><option>gray</option></select>
+        <select id="es"><option>open</option><option>done</option></select>
+      </div>
+      <label>正文</label><textarea id="ebd"></textarea>
+      <label>链接 URL</label><input id="eu">
+      <label>本地路径 path</label><input id="ep">
+      <label>标签（逗号分隔）</label><input id="etg">
+      <div class="row"><button class="pri" id="esave">保存</button><button id="edel">删除</button></div>
+    </div>
+    <div id="toast"></div>
+  </div>
+</div>
+<script>
+let S = {boards: [], cards: []}, cur = null;
+let cam = {x: 0, y: 0, z: 1};
+const $ = id => document.getElementById(id);
+const cv = $('cv'), world = $('world');
+const toast = m => { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 1800); };
+const api = async (m, u, d) => {
+  const r = await fetch(u, {method: m, headers: {'Content-Type': 'application/json'}, body: d ? JSON.stringify(d) : undefined});
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+  return r.json();
+};
+function applyCam() { world.style.transform = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; }
+function toWorld(e) { const r = cv.getBoundingClientRect(); return {x: (e.clientX - r.left - cam.x) / cam.z, y: (e.clientY - r.top - cam.y) / cam.z}; }
+async function load() {
+  S = await api('GET', '/api/state');
+  if (!S.boards.length) { const b = await api('POST', '/api/boards', {title: '我的项目'}); S.boards.push(b); }
+  if (!cur || !S.boards.find(b => b.id === cur)) cur = S.boards[0].id;
+  renderBoards(); renderCards();
+}
+function renderBoards() {
+  const el = $('boards'); el.innerHTML = '';
+  for (const b of S.boards) {
+    const n = S.cards.filter(c => c.board_id === b.id).length;
+    const d = document.createElement('div');
+    d.className = 'b' + (b.id === cur ? ' on' : '');
+    d.innerHTML = `<div class="t"></div><div class="d"></div>`;
+    d.querySelector('.t').textContent = `${b.title} (${n})`;
+    d.querySelector('.d').textContent = b.desc || '';
+    d.onclick = () => { cur = b.id; renderBoards(); renderCards(); };
+    d.ondblclick = () => { const t = prompt('重命名画布', b.title); if (t) api('PATCH', '/api/boards/' + b.id, {title: t}).then(load); };
+    el.appendChild(d);
+  }
+  const b = S.boards.find(x => x.id === cur);
+  $('btitle').textContent = b ? b.title : '—';
+}
+const TP = {note: '📝', link: '🔗', file: '📁', task: '✅'};
+function renderCards() {
+  world.innerHTML = '';
+  const ft = $('ftype').value, q = $('ftext').value.trim().toLowerCase();
+  for (const c of S.cards.filter(c => c.board_id === cur)) {
+    if (ft && c.type !== ft) continue;
+    if (q && !((c.title + c.body + (c.tags || []).join(' ')).toLowerCase().includes(q))) continue;
+    const d = document.createElement('div');
+    d.className = `card y-${c.color || 'yellow'}` + (c.status === 'done' ? ' done' : '');
+    d.style.left = c.x + 'px'; d.style.top = c.y + 'px'; d.style.width = (c.w || 240) + 'px';
+    d.innerHTML = `<span class="tp">${TP[c.type] || ''} ${c.type}</span><h3></h3><div class="bd"></div><div class="xl"></div><div class="tags"></div><div class="ft"></div>`;
+    d.querySelector('h3').textContent = c.title || '(无标题)';
+    d.querySelector('.bd').textContent = c.body || '';
+    const xl = d.querySelector('.xl');
+    if (c.type === 'link' && c.url) { const a = document.createElement('a'); a.href = c.url; a.target = '_blank'; a.textContent = c.url; a.onclick = e => e.stopPropagation(); xl.appendChild(a); }
+    else if (c.type === 'file' && c.path) { const p = document.createElement('div'); p.className = 'path'; p.textContent = c.path; xl.appendChild(p); }
+    else if (c.url) { const a = document.createElement('a'); a.href = c.url; a.target = '_blank'; a.textContent = c.url; a.onclick = e => e.stopPropagation(); xl.appendChild(a); }
+    const tg = d.querySelector('.tags');
+    for (const t of (c.tags || [])) { const s = document.createElement('span'); s.className = 'tag'; s.textContent = '#' + t; tg.appendChild(s); }
+    const ft2 = d.querySelector('.ft');
+    if (c.type === 'task') { const b = document.createElement('button'); b.textContent = c.status === 'done' ? '↩ 重开' : '✔ 完成'; b.onclick = e => { e.stopPropagation(); api('PATCH', '/api/cards/' + c.id, {status: c.status === 'done' ? 'open' : 'done'}).then(load); }; ft2.appendChild(b); }
+    const e = document.createElement('button'); e.textContent = '编辑'; e.onclick = ev => { ev.stopPropagation(); openEd(c.id); }; ft2.appendChild(e);
+    // 拖拽卡片
+    d.addEventListener('pointerdown', ev => {
+      if (ev.target.tagName === 'A' || ev.target.tagName === 'BUTTON') return;
+      ev.stopPropagation();
+      const start = toWorld(ev), ox = c.x, oy = c.y;
+      d.setPointerCapture(ev.pointerId);
+      const mv = e2 => { c.x = Math.round(ox + (toWorld(e2).x - start.x)); c.y = Math.round(oy + (toWorld(e2).y - start.y)); d.style.left = c.x + 'px'; d.style.top = c.y + 'px'; };
+      const up = e2 => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); api('PATCH', '/api/cards/' + c.id, {x: c.x, y: c.y}).catch(() => toast('移动保存失败')); };
+      d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up);
+    });
+    d.ondblclick = ev => { ev.stopPropagation(); openEd(c.id); };
+    world.appendChild(d);
+  }
+}
+// 画布平移/缩放
+(() => {
+  let pan = null;
+  cv.addEventListener('pointerdown', e => { if (e.button === 2 || e.button === 1) { pan = {x: e.clientX - cam.x, y: e.clientY - cam.y}; cv.setPointerCapture(e.pointerId); } });
+  cv.addEventListener('pointermove', e => { if (pan) { cam.x = e.clientX - pan.x; cam.y = e.clientY - pan.y; applyCam(); } });
+  cv.addEventListener('pointerup', () => pan = null);
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); const mx = e.clientX - r.left, my = e.clientY - r.top; const z2 = Math.min(2.5, Math.max(.3, cam.z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))); cam.x = mx - (mx - cam.x) * (z2 / cam.z); cam.y = my - (my - cam.y) * (z2 / cam.z); cam.z = z2; applyCam(); }, {passive: false});
+  cv.addEventListener('dblclick', async e => {
+    if (e.target !== cv && e.target !== world) return;
+    const p = toWorld(e);
+    try { const c = await api('POST', '/api/cards', {board_id: cur, type: 'note', title: '新卡片', x: Math.round(p.x), y: Math.round(p.y)}); await load(); openEd(c.id); }
+    catch (err) { toast('新建失败: ' + err.message); }
+  });
+})();
+// 编辑器
+let edId = null;
+function openEd(id) {
+  const c = S.cards.find(x => x.id === id); if (!c) return;
+  edId = id; $('etitle').textContent = '编辑卡片';
+  $('et').value = c.title || ''; $('ey').value = c.type || 'note'; $('ec').value = c.color || 'yellow';
+  $('es').value = c.status || 'open'; $('ebd').value = c.body || ''; $('eu').value = c.url || '';
+  $('ep').value = c.path || ''; $('etg').value = (c.tags || []).join(', ');
+  $('editor').classList.add('open');
+}
+$('eclose').onclick = () => $('editor').classList.remove('open');
+$('esave').onclick = async () => {
+  const d = {title: $('et').value, type: $('ey').value, color: $('ec').value, status: $('es').value,
+    body: $('ebd').value, url: $('eu').value.trim(), path: $('ep').value.trim(),
+    tags: $('etg').value.split(',').map(s => s.trim()).filter(Boolean)};
+  try { await api('PATCH', '/api/cards/' + edId, d); $('editor').classList.remove('open'); load(); }
+  catch (e) { toast('保存失败: ' + e.message); }
+};
+$('edel').onclick = async () => { if (!confirm('删除这张卡片？')) return; await api('DELETE', '/api/cards/' + edId); $('editor').classList.remove('open'); load(); };
+$('addc').onclick = async () => { const cs = S.cards.filter(c => c.board_id === cur); const c = await api('POST', '/api/cards', {board_id: cur, type: 'note', title: '新卡片', x: 60 + (cs.length % 4) * 260, y: 60 + Math.floor(cs.length / 4) * 220}); await load(); openEd(c.id); };
+$('refresh').onclick = load;
+$('ftype').onchange = renderCards; $('ftext').oninput = renderCards;
+$('nbgo').onclick = async () => { const t = $('nbtitle').value.trim(); if (!t) return; const b = await api('POST', '/api/boards', {title: t}); $('nbtitle').value = ''; cur = b.id; load(); };
+applyCam(); load().catch(e => toast('加载失败: ' + e.message));
+</script>
+</body>
+</html>

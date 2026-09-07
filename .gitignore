@@ -1,0 +1,14 @@
+data.json
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+data.json
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+frontend/node_modules/
+.vite/

@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* React Flow: let our card own the visuals, strip the default node chrome */
+.react-flow__node-card {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+.react-flow__node-card.selectable:focus {
+  outline: none;
+}
+.react-flow__attribution {
+  background: transparent;
+  color: #a1a1aa;
+}

@@ -1,0 +1,6 @@
+[project]
+name = "agent-board"
+version = "0.1.0"
+description = "面向 agent 的 miro：项目=画布，万物=卡片"
+requires-python = ">=3.11"
+dependencies = []
