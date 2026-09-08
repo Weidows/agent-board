@@ -81,7 +81,7 @@ export default function Editor({ card, onSave, onDelete, onClose }: Props) {
           保存
         </button>
         <button
-          onClick={() => { if (confirm('删除这张卡片？')) onDelete(card.id).then(onClose); }}
+          onClick={() => onDelete(card.id).then(onClose)}
           className="flex-1 rounded-full border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           删除

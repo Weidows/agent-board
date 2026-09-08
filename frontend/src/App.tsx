@@ -77,7 +77,6 @@ export function Board() {
     [cards],
   );
   const onDeleteNode = useCallback(async (id: string) => {
-    if (!confirm('删除这张卡片？')) return;
     await api.deleteCard(id);
     setCards((cs) => cs.filter((x) => x.id !== id));
     setEditing((e) => (e?.id === id ? null : e));
@@ -130,6 +129,8 @@ export function Board() {
   const onPaneDoubleClick = useCallback(
     async (e: React.MouseEvent) => {
       if (!cur) return;
+      // 卡片上的双击冒泡到这里：落在 node 内的直接忽略，由卡片自己处理（打开编辑）
+      if ((e.target as HTMLElement).closest?.('.react-flow__node')) return;
       try {
         const p = screenToFlowPosition({ x: e.clientX, y: e.clientY });
         const c = await api.createCard({
@@ -262,6 +263,7 @@ export function Board() {
           </ReactFlow>
           {editing && (
             <Editor
+              key={editing.id}
               card={editing}
               onSave={async (id, d) => {
                 const next = await api.patchCard(id, d);

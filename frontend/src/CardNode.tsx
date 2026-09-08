@@ -33,6 +33,7 @@ export default function CardNode({ data, selected }: NodeProps) {
 
   return (
     <div
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit(card.id); }}
       className={`w-64 rounded-2xl border bg-white shadow-sm transition-shadow dark:bg-zinc-900 ${
         selected
           ? 'border-emerald-600 ring-2 ring-emerald-600/30'
