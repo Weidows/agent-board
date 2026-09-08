@@ -97,6 +97,15 @@ export function Board() {
     setNodes((ns) => applyNodeChanges(changes, ns) as CardNodeT[]);
   }, []);
 
+  const onNodeClick = useCallback(
+    (e: React.MouseEvent, node: CardNodeT) => {
+      // 卡片内按钮/链接的点击不触发编辑（按钮自己已 stopPropagation，这里再保险一层）
+      if ((e.target as HTMLElement).closest?.('button, a')) return;
+      setEditing(cards.find((c) => c.id === node.id) ?? null);
+    },
+    [cards],
+  );
+
   const onNodeDragStop = useCallback(
     async (_event: MouseEvent | TouchEvent, node: CardNodeT) => {
       const { x, y } = node.position;
@@ -249,6 +258,7 @@ export function Board() {
             nodes={nodes}
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
+            onNodeClick={onNodeClick}
             onNodeDragStop={onNodeDragStop}
             onDoubleClick={onPaneDoubleClick}
             zoomOnDoubleClick={false}
