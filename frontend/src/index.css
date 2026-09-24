@@ -19,3 +19,127 @@ body {
   background: transparent;
   color: #a1a1aa;
 }
+
+/* ===================== motion ===================== */
+
+/* 卡片入场：带一点回弹的 pop-in（不填充 for­wards，结束后交还给 hover 的 transform） */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* 卡片退场：缩小 + 淡出 */
+@keyframes card-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+/* 编辑面板：从右侧滑入 / 滑出 */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes panel-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(18px) scale(0.98);
+  }
+}
+/* 错误 toast：底部上浮（keyframes 自带 -50% 保持居中） */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+/* 侧边栏画布项 / 顶栏标题：轻量上浮淡入 */
+@keyframes board-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* “已完成”徽章出现时的小 pop */
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.anim-card-in {
+  animation: card-in 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.anim-card-out {
+  animation: card-out 0.18s ease-in forwards;
+}
+.anim-panel-in {
+  animation: panel-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.anim-panel-out {
+  animation: panel-out 0.18s ease-in forwards;
+}
+.anim-toast-in {
+  animation: toast-in 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* backwards: 带 animation-delay 的错峰入场在延迟期间保持隐藏 */
+.anim-board-in {
+  animation: board-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.anim-fade-in {
+  animation: fade-in 0.3s ease;
+}
+.anim-chip-in {
+  animation: chip-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 尊重系统“减弱动态效果”设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

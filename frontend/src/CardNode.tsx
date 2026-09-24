@@ -16,6 +16,7 @@ export interface CardNodeData extends Record<string, unknown> {
   onEdit: (id: string) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  removing?: boolean;
 }
 
 const TYPE_META = {
@@ -26,14 +27,16 @@ const TYPE_META = {
 } as const;
 
 export default function CardNode({ data, selected }: NodeProps) {
-  const { card, onEdit, onToggle, onDelete } = data as unknown as CardNodeData;
+  const { card, onEdit, onToggle, onDelete, removing } = data as unknown as CardNodeData;
   const meta = TYPE_META[card.type] ?? TYPE_META.note;
   const Icon = meta.icon;
   const done = card.status === 'done';
 
   return (
     <div
-      className={`w-64 rounded-2xl border bg-white shadow-sm transition-shadow dark:bg-zinc-900 ${
+      className={`w-64 rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-zinc-900 ${
+        removing ? 'anim-card-out' : 'anim-card-in'
+      } ${
         selected
           ? 'border-emerald-600 ring-2 ring-emerald-600/30'
           : 'border-zinc-200 dark:border-zinc-800'
@@ -45,7 +48,7 @@ export default function CardNode({ data, selected }: NodeProps) {
           {meta.label}
         </span>
         {done && (
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="anim-chip-in rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
             已完成
           </span>
         )}
@@ -54,7 +57,7 @@ export default function CardNode({ data, selected }: NodeProps) {
             <button
               title={done ? '重开' : '完成'}
               onClick={(e) => { e.stopPropagation(); onToggle(card.id); }}
-              className="rounded-md p-1 hover:bg-zinc-100 hover:text-emerald-700 dark:hover:bg-zinc-800"
+              className="rounded-md p-1 transition active:scale-90 hover:bg-zinc-100 hover:text-emerald-700 dark:hover:bg-zinc-800"
             >
               {done ? <ArrowCounterClockwise size={14} /> : <Check size={14} weight="bold" />}
             </button>
@@ -62,21 +65,21 @@ export default function CardNode({ data, selected }: NodeProps) {
           <button
             title="编辑"
             onClick={(e) => { e.stopPropagation(); onEdit(card.id); }}
-            className="rounded-md p-1 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="rounded-md p-1 transition active:scale-90 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
           >
             <PencilSimple size={14} />
           </button>
           <button
             title="删除"
             onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
-            className="rounded-md p-1 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+            className="rounded-md p-1 transition active:scale-90 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
           >
             <Trash size={14} />
           </button>
         </div>
       </div>
       <div className="px-3 pb-1 pt-1">
-        <div className={`text-sm font-semibold leading-snug text-zinc-900 dark:text-zinc-100 ${done ? 'line-through text-zinc-400' : ''}`}>
+        <div className={`text-sm font-semibold leading-snug text-zinc-900 transition-colors duration-200 dark:text-zinc-100 ${done ? 'line-through text-zinc-400' : ''}`}>
           {card.title || '(无标题)'}
         </div>
         {card.body && (

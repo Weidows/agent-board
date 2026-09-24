@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -22,7 +22,7 @@ type CardNodeT = Node<CardNodeData, 'card'>;
 const nodeTypes = { card: CardNode };
 
 export function Board() {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const [boards, setBoards] = useState<Board[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [cur, setCur] = useState<string | null>(null);
@@ -32,6 +32,7 @@ export function Board() {
   const [nbTitle, setNbTitle] = useState('');
   const [editing, setEditing] = useState<Card | null>(null);
   const [err, setErr] = useState('');
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(new Set());
 
   const reload = useCallback(async () => {
     const s: State = await api.state();
@@ -49,6 +50,13 @@ export function Board() {
   useEffect(() => {
     reload().catch((e) => setErr(e instanceof Error ? e.message : '加载失败'));
   }, [reload]);
+
+  // 错误 toast 自动消失（重复报错靠 key 重挂载重播动画）
+  useEffect(() => {
+    if (!err) return;
+    const t = window.setTimeout(() => setErr(''), 3500);
+    return () => window.clearTimeout(t);
+  }, [err]);
 
   const visible = useMemo(
     () =>
@@ -76,10 +84,24 @@ export function Board() {
     },
     [cards],
   );
-  const onDeleteNode = useCallback(async (id: string) => {
-    await api.deleteCard(id);
-    setCards((cs) => cs.filter((x) => x.id !== id));
-    setEditing((e) => (e?.id === id ? null : e));
+
+  // 删除：先播退场动画（~190ms），再真正调接口；失败则卡片“弹回”并提示
+  const removeCard = useCallback(async (id: string) => {
+    setRemoving((s) => new Set(s).add(id));
+    await new Promise((r) => window.setTimeout(r, 190));
+    try {
+      await api.deleteCard(id);
+      setCards((cs) => cs.filter((x) => x.id !== id));
+      setEditing((e) => (e?.id === id ? null : e));
+    } catch {
+      setErr('删除失败');
+    } finally {
+      setRemoving((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -88,10 +110,24 @@ export function Board() {
         id: c.id,
         type: 'card',
         position: { x: c.x, y: c.y },
-        data: { card: c, onEdit, onToggle, onDelete: onDeleteNode },
+        data: { card: c, onEdit, onToggle, onDelete: removeCard, removing: removing.has(c.id) },
       })),
     );
-  }, [visible, onEdit, onToggle, onDeleteNode]);
+  }, [visible, onEdit, onToggle, removeCard, removing]);
+
+  // 切换画布时镜头平滑飞过去，而不是瞬间跳变
+  const prevBoard = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevBoard.current !== null && prevBoard.current !== cur) {
+      const t = window.setTimeout(() => {
+        fitView({ duration: 650, padding: 0.25, maxZoom: 1.2 });
+      }, 60);
+      prevBoard.current = cur;
+      return () => window.clearTimeout(t);
+    }
+    prevBoard.current = cur;
+    return undefined;
+  }, [cur, fitView]);
 
   const onNodesChange = useCallback((changes: NodeChange<CardNodeT>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns) as CardNodeT[]);
@@ -179,7 +215,7 @@ export function Board() {
           <div className="mt-0.5 text-xs text-zinc-500">项目 = 画布 · 万物 = 卡片</div>
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2">
-          {boards.map((b) => (
+          {boards.map((b, i) => (
             <div
               key={b.id}
               onClick={() => setCur(b.id)}
@@ -187,7 +223,8 @@ export function Board() {
                 const t = prompt('重命名画布', b.title);
                 if (t) api.patchBoard(b.id, { title: t }).then(reload);
               }}
-              className={`mb-1.5 cursor-pointer rounded-xl border px-3 py-2 ${
+              style={{ animationDelay: `${i * 45}ms` }}
+              className={`anim-board-in mb-1.5 cursor-pointer rounded-xl border px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-sm ${
                 b.id === cur
                   ? 'border-emerald-600 bg-white shadow-sm dark:bg-zinc-900'
                   : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700'
@@ -204,9 +241,12 @@ export function Board() {
             onChange={(e) => setNbTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createBoard()}
             placeholder="新建项目画布…"
-            className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
+            className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-transparent px-2 py-1.5 text-sm transition focus:border-emerald-600/70 focus:outline-none focus:ring-2 focus:ring-emerald-600/15 dark:border-zinc-700"
           />
-          <button onClick={createBoard} className="rounded-lg bg-emerald-600 px-2.5 text-white hover:bg-emerald-700">
+          <button
+            onClick={createBoard}
+            className="rounded-lg bg-emerald-600 px-2.5 text-white transition hover:bg-emerald-700 active:scale-95"
+          >
             <Plus size={15} weight="bold" />
           </button>
         </div>
@@ -215,11 +255,13 @@ export function Board() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-14 max-w-full items-center gap-2 border-b border-zinc-200 px-3 dark:border-zinc-800">
           <SquaresFour size={17} className="shrink-0 text-zinc-400" />
-          <span className="truncate text-[15px] font-bold">{board?.title ?? '—'}</span>
+          <span key={board?.id ?? 'none'} className="anim-fade-in truncate text-[15px] font-bold">
+            {board?.title ?? '—'}
+          </span>
           <select
             value={ftype}
             onChange={(e) => setFtype(e.target.value)}
-            className="shrink-0 rounded-lg border border-zinc-200 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+            className="shrink-0 rounded-lg border border-zinc-200 bg-transparent px-2 py-1 text-sm transition focus:border-emerald-600/70 focus:outline-none dark:border-zinc-700"
           >
             <option value="">全部类型</option>
             <option value="note">笔记</option>
@@ -233,20 +275,20 @@ export function Board() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="过滤 卡片/标签…"
-              className="w-full rounded-lg border border-zinc-200 bg-transparent py-1 pl-7 pr-2 text-sm dark:border-zinc-700"
+              className="w-full rounded-lg border border-zinc-200 bg-transparent py-1 pl-7 pr-2 text-sm transition focus:border-emerald-600/70 focus:outline-none focus:ring-2 focus:ring-emerald-600/15 dark:border-zinc-700"
             />
           </div>
           <div className="ml-auto flex shrink-0 gap-1.5">
             <button
               onClick={() => reload().catch((e) => setErr(e instanceof Error ? e.message : '刷新失败'))}
               title="刷新"
-              className="rounded-full border border-zinc-200 p-1.5 hover:bg-white dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="group rounded-full border border-zinc-200 p-1.5 transition hover:bg-white dark:border-zinc-700 dark:hover:bg-zinc-900"
             >
-              <ArrowClockwise size={14} />
+              <ArrowClockwise size={14} className="transition-transform duration-500 group-hover:rotate-180" />
             </button>
             <button
               onClick={addCard}
-              className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 hover:shadow-md active:scale-95"
             >
               + 卡片
             </button>
@@ -279,15 +321,15 @@ export function Board() {
                 const next = await api.patchCard(id, d);
                 setCards((cs) => cs.map((c) => (c.id === id ? next : c)));
               }}
-              onDelete={async (id) => {
-                await api.deleteCard(id);
-                setCards((cs) => cs.filter((c) => c.id !== id));
-              }}
+              onDelete={removeCard}
               onClose={() => setEditing(null)}
             />
           )}
           {err && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 px-4 py-1.5 text-xs text-white dark:bg-zinc-100 dark:text-zinc-900">
+            <div
+              key={err}
+              className="anim-toast-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 px-4 py-1.5 text-xs text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900"
+            >
               {err}
             </div>
           )}
