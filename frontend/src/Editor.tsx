@@ -59,6 +59,12 @@ export default function Editor({ card, onSave, onDelete, onClose }: Props) {
       className={`absolute right-3 top-3 z-10 w-72 rounded-2xl border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 ${
         closing ? 'anim-panel-out' : 'anim-panel-in'
       }`}
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'Enter')) {
+          e.preventDefault();
+          if (!busy && !closing) void save();
+        }
+      }}
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">编辑卡片</span>
