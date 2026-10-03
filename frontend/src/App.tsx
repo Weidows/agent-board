@@ -50,6 +50,7 @@ export function Board() {
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<string[]>([]);
   const applyingRef = useRef(false);
+  const deletingRef = useRef<Set<string>>(new Set());
   // 每次渲染都镜像最新数据，供历史栈取“变更前”快照（避免闭包过期）
   const stateRef = useRef<Snapshot>({ cards: [], boards: [] });
   stateRef.current = { cards, boards };
@@ -208,6 +209,9 @@ export function Board() {
 
   // 删除：先播退场动画（~190ms），再真正调接口；失败则卡片“弹回”并提示
   const removeCard = useCallback(async (id: string) => {
+    // 已不存在 / 删除进行中 → 跳过，避免重复删除污染历史栈
+    if (deletingRef.current.has(id) || !stateRef.current.cards.some((c) => c.id === id)) return;
+    deletingRef.current.add(id);
     setRemoving((s) => new Set(s).add(id));
     await new Promise((r) => window.setTimeout(r, 190));
     try {
@@ -218,6 +222,7 @@ export function Board() {
     } catch {
       setErr('删除失败');
     } finally {
+      deletingRef.current.delete(id);
       setRemoving((s) => {
         const n = new Set(s);
         n.delete(id);
@@ -371,13 +376,17 @@ export function Board() {
         searchRef.current?.select();
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !editing && selectedRef.current.length) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // 优先删选中的；选中态被重建清掉时退回到正打开的编辑对象
+        const targets = selectedRef.current.length ? [...selectedRef.current] : editing ? [editing.id] : [];
+        if (!targets.length) return;
         e.preventDefault();
-        for (const id of [...selectedRef.current]) removeCard(id);
+        for (const id of targets) removeCard(id);
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // 捕获阶段监听，避免被 React Flow 等内层 stopPropagation 吃掉
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [undo, redo, addCard, removeCard, help, editing]);
 
   return (
@@ -503,7 +512,7 @@ export function Board() {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <ReactFlow
             nodes={nodes}
             nodeTypes={nodeTypes}
